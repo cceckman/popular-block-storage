@@ -4,7 +4,7 @@ COPY  --chown=spigot:spigot \
     output/spigot.jar spigot.jar
 COPY  --chown=spigot:spigot \
     server.properties server.properties
-COPY --chown spigot:spigot \
+COPY --chown=spigot:spigot \
     output/plugin.jar plugins/popular-block-storage.jar
 
 # NOTE: by running this server, you're agreeing to the EULA!

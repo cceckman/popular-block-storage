@@ -10,7 +10,7 @@ then
     chmod 0777 "$PWD/world"
 fi
 
-redo-ifchange plugged-in.img
+redo-ifchange spigot/plugged-in.img
 
 docker run -it \
     --mount type=bind,source=$PWD/world,destination=/home/spigot/world \

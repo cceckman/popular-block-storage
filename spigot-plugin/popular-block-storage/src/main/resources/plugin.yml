@@ -1,3 +1,8 @@
-main: com.cceckman.blocks
+main: com.cceckman.blocks.App
+description: Enable Linux to use Minecraft chests as block storage devices.
 name: popular-block-storage
 version: 0.1
+api-version: 1.15.2
+load: POSTWORLD
+authors: [cceckman, slongfield]
+website: https://github.com/cceckman/popular-block-storage
