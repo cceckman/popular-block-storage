@@ -1,7 +1,7 @@
 redo-always
 exec 1>&2
 
-docker container prune
+docker container prune -f
 docker images prune -a
 
 rm -rf spigot/output

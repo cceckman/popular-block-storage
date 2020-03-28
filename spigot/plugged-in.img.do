@@ -7,8 +7,9 @@ redo-ifchange \
     ../spigot-plugin/plugin.jar \
     spigot-outputs \
     base.Dockerfile \
-    run.Dockerfile
+    plugged-in.Dockerfile
 
+# Copy the plugin to this directory, so it's available to Docker.
 cp ../spigot-plugin/plugin.jar outputs/plugin.jar
 
 docker build \
@@ -17,7 +18,7 @@ docker build \
     .
 
 docker build \
-    -f run.Dockerfile \
+    -f plugged-in.Dockerfile \
     -t spigot-runner:latest \
     .
 

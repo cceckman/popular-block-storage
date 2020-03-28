@@ -33,6 +33,9 @@ else
     java -jar BuildTools.jar \
         --rev "$VERSION"
     find . | grep '\.jar'
-    cp -r * /output
+
+    cp spigot-1.15.2.jar /output/spigot.jar
+    cp Spigot/Spigot-API/target/spigot-api-*-shaded.jar /output/spigot-api-shaded.jar
+
     # TODO: Filter down to just those files of interest
 fi

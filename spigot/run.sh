@@ -10,17 +10,7 @@ then
     chmod 0777 "$PWD/world"
 fi
 
-docker build \
-    -f base.Dockerfile \
-    -t spigot-base:latest \
-    .
-
-redo-ifchange spigot-outputs
-
-docker build \
-    -f run.Dockerfile \
-    -t spigot-runner:latest \
-    .
+redo-ifchange plugged-in.img
 
 docker run -it \
     --mount type=bind,source=$PWD/world,destination=/home/spigot/world \
