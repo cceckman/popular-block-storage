@@ -4,6 +4,12 @@
 
 set -ex
 
+if ! test -d $PWD/world
+then
+    mkdir $PWD/world
+    chmod 0777 "$PWD/world"
+fi
+
 docker build \
     -f base.Dockerfile \
     -t spigot-base:latest \
@@ -13,9 +19,7 @@ docker build \
     -t spigot-runner:latest \
     .
 
-
-
-
-java -Xms1G -Xmx1G -XX:+UseConcMarkSweepGC -jar spigot.jar
-
-.
+docker run -it \
+    --mount type=bind,source=$PWD/world,destination=/home/spigot/world \
+    --publish 4601:4601 \
+    spigot-runner:latest
