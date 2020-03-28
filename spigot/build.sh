@@ -9,6 +9,10 @@ then
     rm -rf "$SPIGOT_OUTPUT" # Don't pollute the docker buildenv.
 
     docker build \
+        -f base.Dockerfile \
+        -t spigot-base:latest \
+        .
+    docker build \
         -f build.Dockerfile \
         -t spigot-builder:latest \
         .
@@ -26,5 +30,6 @@ else
     # Inside container.
     java -jar BuildTools.jar \
         --rev "$VERSION"
-    cp "*.jar" "$SPIGOT_OUTPUT"
+    find .
+    cp spigot-"$VERSION".jar "$SPIGOT_OUTPUT"
 fi
