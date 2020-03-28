@@ -14,6 +14,9 @@ docker build \
     -f base.Dockerfile \
     -t spigot-base:latest \
     .
+
+redo-ifchange spigot-outputs
+
 docker build \
     -f run.Dockerfile \
     -t spigot-runner:latest \

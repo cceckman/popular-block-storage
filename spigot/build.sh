@@ -21,15 +21,18 @@ then
     chmod 0777 "$SPIGOT_OUTPUT"
 
     docker run \
-        -ti \
+        -t \
         --mount type=bind,source="$SPIGOT_OUTPUT",target=/output \
         --env "SPIGOT_OUTPUT=/output" \
         spigot-builder:latest
+
+    sudo chown --reference output --recursive output
 else
     VERSION="1.15.2"
     # Inside container.
     java -jar BuildTools.jar \
         --rev "$VERSION"
-    find .
-    cp spigot-"$VERSION".jar "$SPIGOT_OUTPUT"
+    find . | grep '\.jar'
+    cp -r * /output
+    # TODO: Filter down to just those files of interest
 fi

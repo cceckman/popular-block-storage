@@ -4,6 +4,7 @@ COPY  --chown=spigot:spigot \
     output/spigot-*.jar spigot.jar
 COPY  --chown=spigot:spigot \
     server.properties server.properties
+COPY --chown spigot:spigot \
 
 # NOTE: by running this server, you're agreeing to the EULA!
 # What EULA? I'm not sure.
