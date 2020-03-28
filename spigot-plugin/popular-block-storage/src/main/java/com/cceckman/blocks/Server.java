@@ -1,15 +1,18 @@
 package com.cceckman.blocks;
 
-import java.util.function.Consumer;
 import java.util.logging.Logger;
+
+import org.bukkit.plugin.Plugin;
 
 public class Server extends Thread {
     private final Logger logger_;
-    private final Consumer<ChestEvent> send_;
+    private final Plugin plugin_;
+    private final OffsetOperationFactory op_factory_;
 
-    public Server(final Logger logger, final Consumer<ChestEvent> send) {
+    public Server(final Logger logger, final Plugin p, final OffsetOperationFactory f) {
         this.logger_ = logger;
-        this.send_ = send;
+        this.plugin_ = p;
+        this.op_factory_ = f;
     }
 
     @Override
@@ -26,7 +29,10 @@ public class Server extends Thread {
             }
 
             // Send a fake event.
-            send_.accept(new ChestEvent(offset, length));
+            OffsetOperation op = op_factory_.newOp(offset, length);
+            logger_.info("Running task");
+            var task = op.runTask(plugin_);
+            logger_.info(String.format("Ran task with ID: %d", task.getTaskId()));
             offset += length;
         }
     }
