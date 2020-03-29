@@ -29,7 +29,7 @@ public class Server extends Thread {
             final int length = 1;
             while (true) {
                 try {
-                    Thread.sleep(500);
+                    Thread.sleep(1000);
                     logger_.info("Dummy thread tick.");
                 } catch (final InterruptedException e) {
                     logger_.info("Dummy thread received shutdown signal, stopping.");
@@ -38,8 +38,8 @@ public class Server extends Thread {
 
                 final var buf = new byte[length];
 
-                // Send a fake event.
-                final OffsetOperation op = op_factory_.newOp(offset, buf);
+                // Send a fake read event.
+                final OffsetOperation op = op_factory_.newOp(false, offset, buf);
                 logger_.info("Running task");
                 final var task = op.runTask(plugin_);
                 logger_.info(String.format("Ran task with ID: %d", task.getTaskId()));
@@ -54,18 +54,29 @@ public class Server extends Thread {
             logger_.severe(String.format("Could not start server: %s", e));
             return;
         }
-        while(!this.isInterrupted()) {
-            try{
-                var sock = listener.accept();
-                logger_.info(String.format(
-                    "Server received connection from %s, starting worker", sock.getInetAddress()));
-                client_pool_.submit(() -> {
-                    handleChannel(sock);
-                });
-            } catch(final IOException e) {
-                logger_.warning(String.format("Server received exception in IO loop: %s\nExiting", e.toString()));
-                break;
+        client_pool_.submit(() -> {
+            while(!this.isInterrupted()) {
+                try{
+                    var sock = listener.accept();
+                    logger_.info(String.format(
+                        "Server received connection from %s, starting worker", sock.getInetAddress()));
+                    client_pool_.submit(() -> {
+                        handleChannel(sock);
+                    });
+                } catch(final IOException e) {
+                    logger_.warning(String.format("Server received exception in IO loop: %s\nExiting", e.toString()));
+                    break;
+                }
             }
+        });
+
+        // Wait for an interrupt, then shut things down.
+        try {
+            while(!this.isInterrupted()) {
+                this.wait();
+            }
+        } catch (final InterruptedException e) {
+            // That's fine!
         }
         try {
             listener.close();
@@ -73,8 +84,7 @@ public class Server extends Thread {
             logger_.warning("Server got error closing socket");
             e.printStackTrace();
         }
-
-        client_pool_.shutdownNow();
+        client_pool_.shutdown();
     }
 
     private void handleChannel(Socket s) {

@@ -10,8 +10,8 @@ public class OffsetOperationFactory {
         origin_ = origin;
     }
 
-    public OffsetOperation newOp(final long offset, final byte[] buffer) {
-        return new OffsetOperation(logger_, origin_, offset, buffer);
+    public OffsetOperation newOp(final boolean write, final long offset, final byte[] buffer) {
+        return new OffsetOperation(logger_, origin_, write, offset, buffer);
     }
 
     private Logger logger_;

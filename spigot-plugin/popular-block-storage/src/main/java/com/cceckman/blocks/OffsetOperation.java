@@ -16,10 +16,12 @@ public class OffsetOperation extends BukkitRunnable {
     public OffsetOperation(
         final Logger l, 
         final Location origin, 
+        final boolean write,
         final long offset, 
         final byte[] buffer) {
         logger_ = l;
         origin_ = origin;
+        write_ = write;
         offset_ = offset;
         buffer_ = buffer;
     }
@@ -38,7 +40,8 @@ public class OffsetOperation extends BukkitRunnable {
     private final Location origin_;
     private final Logger logger_;
 
-    // Semantic fields: offset & buffer (which implies length.)
+    // Semantic fields: r/w, offset & buffer (which implies length.)
+    private final boolean write_;
     private final long offset_; // Offset of the request: first address read / written.
     private final byte[] buffer_;
 
@@ -76,6 +79,11 @@ public class OffsetOperation extends BukkitRunnable {
     }
 
     private void ensureChest(Block block) {
+        if(block.getType() != Material.CHEST) {
+            Location partnerLocation = block.getLocation().clone().add(new Vector(1, 0, 0));
+            Block partner = partnerLocation.getBlock();
+
+        }
         // TODO(cceckman)
         block.setType(Material.CHEST);
         logger_.info(String.format("Turned (%d, %d, %d) into a chest",
