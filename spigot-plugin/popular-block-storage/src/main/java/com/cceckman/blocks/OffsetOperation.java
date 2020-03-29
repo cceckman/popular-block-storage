@@ -9,6 +9,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.type.Chest;
 import org.bukkit.event.HandlerList;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
@@ -69,6 +70,7 @@ public class OffsetOperation extends BukkitRunnable {
     }
 
     // Slots in a (small) Minecraft chest. We use one slot per byte.
+    // TODO(cceckman): Use large chests (54 slots)
     static final int kSlotsPerChest = 27;
     private static int slot(final long offset) {
         return (int)(offset % kSlotsPerChest);
@@ -87,14 +89,14 @@ public class OffsetOperation extends BukkitRunnable {
         BlockState state = block.getState();
 
         // If either is not a chest, we're in repair mode.
-        if(state.getType() != Material.CHEST || state.getType() != Material.CHEST) {
+        if(state.getType() != Material.CHEST || partner.getType() != Material.CHEST) {
             state.setType(Material.CHEST);
-            state.setType(Material.CHEST);
+            partner.setType(Material.CHEST);
         }
 
         // Set all the object data except contents.
         Chest dataLeft = (Chest)state.getBlockData();
-        Chest dataRight = (Chest)state.getBlockData();
+        Chest dataRight = (Chest)partner.getBlockData();
         dataLeft.setType(Chest.Type.LEFT);
         dataRight.setType(Chest.Type.RIGHT);
         dataLeft.setFacing(BlockFace.NORTH);
@@ -122,19 +124,49 @@ public class OffsetOperation extends BukkitRunnable {
 
         Block block = world.getBlockAt(location(offset_));
         ensureChest(block);
-        for(long i = 0; i < buffer_.length; i++) {
+        org.bukkit.block.Chest state = (org.bukkit.block.Chest)block.getState();
+        var inv = state.getSnapshotInventory();
+
+        for(int i = 0; i < buffer_.length; i++) {
             final var offset =  this.offset_ + i;
             final var slot = slot(offset);
 
             if(slot == 0) {
-                // We've rolled over into a new block. Check that it's a chest.
+                // We've rolled over into a new block.
+                // Apply existing state, by force
+                if(write_) {
+                    state.update(true);
+                }
+                // And ensure the next block is a chest.
                 block = world.getBlockAt(location(offset));
                 ensureChest(block);
+                // Yes, there's a race here between turning it into a chest and getting the state.
+                // No, we won't worry about it.
+                state = (org.bukkit.block.Chest)block.getState();
+                inv = state.getSnapshotInventory();
             }
 
-            BlockState state = block.getState();
-
             // Place the byte in the chest, OR read into buffer.
+            if(write_) {
+                inv.setItem(slot, from(buffer_[i]));
+            } else {
+                buffer_[i] = to(inv.getItem(slot));
+            }
         }
+
+        if(write_) {
+            // One last commit.
+            state.update(true);
+        }
+    }
+
+    private static ItemStack from(byte b) {
+        // TODO: Actual mapping
+        return new ItemStack(Material.CHEST);
+    }
+
+    private static byte to(ItemStack s) {
+        // TODO: Actual mapping
+        return (byte)0xff;
     }
 }
