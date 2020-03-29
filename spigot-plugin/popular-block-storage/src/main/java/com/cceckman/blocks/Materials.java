@@ -1,5 +1,7 @@
 package com.cceckman.blocks;
 
+import static java.lang.Byte.toUnsignedInt;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -18,21 +20,21 @@ public class Materials {
 
         int i = 1;
 
-        for(var material : Material.values()) {
-            if(by_material.size() == 255) {
+        for (var material : Material.values()) {
+            if (by_material.size() == 255) {
                 break;
             }
 
-            if(material.isItem()) {
+            if (material.isItem()) {
                 by_byte[i] = new ItemStack(material);
-                by_material.put(material, (byte)i);
+                by_material.put(material, (byte) i);
                 i++;
             }
         }
     }
 
     public static ItemStack value(byte b) {
-        return by_byte[b];
+        return by_byte[toUnsignedInt(b)];
     }
     public static byte value(ItemStack s) {
         if(s == null || !by_material.containsKey(s.getType())) {
