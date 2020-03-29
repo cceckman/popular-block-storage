@@ -3,10 +3,11 @@ package com.cceckman.blocks;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
-import java.nio.ByteBuffer;
 
 import org.bukkit.plugin.Plugin;
 
@@ -57,13 +58,18 @@ public class Server extends Thread {
             return;
         }
         client_pool_.submit(() -> {
+            int connectionNumber = 0;
             while(!this.isInterrupted()) {
                 try{
                     var sock = listener.accept();
                     logger_.info(String.format(
-                        "Server received connection from %s, starting worker", sock.getInetAddress()));
+                        "Server received connection from %s, starting worker for connection %d",
+                        sock.getInetAddress(), connectionNumber));
+                    // Java doesn't (?) have explicit captures, or explicit copy vs. reference...
+                    // so, temporary local for connection number.
+                    int thisConnectionNumber = connectionNumber++;
                     client_pool_.submit(() -> {
-                        handleChannel(sock);
+                        handleChannel(sock, thisConnectionNumber);
                     });
                 } catch(final IOException e) {
                     logger_.warning(String.format("Server received exception in IO loop: %s\nExiting", e.toString()));
@@ -91,7 +97,7 @@ public class Server extends Thread {
         client_pool_.shutdown();
     }
 
-    private void handleChannel(Socket s) {
+    private void handleChannel(final Socket s, final int connectionNumber) {
         try {
             var input = s.getInputStream();
             var output = s.getOutputStream();
@@ -105,7 +111,9 @@ public class Server extends Thread {
                     int read = input.read(header, headerBytes, headerSize - headerBytes);
                     if(read == -1) {
                         // Reached end of input stream.
-                        throw new IOException("Reached end of stream within header");
+                        throw new IOException(String.format(
+                            "Connection %d: Reached end of stream within header",
+                            connectionNumber));
                     }
                     headerBytes += read;
                 }
@@ -118,13 +126,15 @@ public class Server extends Thread {
                 // Get data buffer. Yes, we should reuse these. No, we aren't going to.
                 var data = new byte[length];
                 if(isWriteRequest) {
-                    // Read data to write into buffer.
+                    // Read request data into local buffer, for writing in the game thread.
                     int totalRead= 0;
                     while(totalRead < length) {
                         int read = input.read(data, totalRead, length - totalRead);
                         if(read == -1) {
                             // Reached end of input stream.
-                            throw new IOException("Reached end of stream while reading data");
+                            throw new IOException(String.format( 
+                                "Connection %d: Reached end of stream while reading data",
+                                connectionNumber));
                         }
                         totalRead += read;
                     }
@@ -134,25 +144,32 @@ public class Server extends Thread {
                 // Run as a synchronous operation with the game thread, so that each client has local consistency
                 // (i.e. their operations were in order with respect to their other operations.)
                 final OffsetOperation op = op_factory_.newOp(isWriteRequest, offset, data);
-                logger_.info("Running task from network thread");
+                logger_.info(String.format("Connection %d: Scheduling task on game thread", connectionNumber));
                 final var task = op.runTask(plugin_);
-                logger_.info(String.format("Ran task from network thread with ID: %d", task.getTaskId()));
+                logger_.info(String.format(
+                    "Connection %d: Scheduled task with ID %d, awaiting completion", connectionNumber, task.getTaskId()));
+                op.await();
 
                 // Send response.
                 output.write(header);
                 if(isReadRequest) {
+                    logger_.info(String.format(
+                        "Connection %d: Writing back data (hash: %d)", connectionNumber, Arrays.hashCode(data)));
                     output.write(data);
                 }
             }
         } catch (IOException e) {
-            logger_.warning("Handler got exception during read phase");
+            logger_.warning("Connection %d got IO exception during read phase, shutting down");
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            logger_.warning("Connection %d got interrupt exception during read phase, shutting down");
             e.printStackTrace();
         }
 
         try {
             s.close();
         }catch(IOException e) {
-            logger_.warning("Handler got exception during shutdown");
+            logger_.warning("Connection %d excepted during shutdown");
             e.printStackTrace();
         }
     }

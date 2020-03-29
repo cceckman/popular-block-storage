@@ -1,5 +1,9 @@
 package com.cceckman.blocks;
 
+import java.util.Arrays;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 import org.bukkit.Location;
@@ -126,7 +130,7 @@ public class OffsetOperation extends BukkitRunnable {
     // Applies this transformation to the world.
     // Must be applied from the main thread!
     public void run() {
-        logger_.info(String.format("Received write request for @%d (%d bytes)", offset_, buffer_.length));
+        logger_.info(String.format("Received request for @%d (%d bytes)", offset_, buffer_.length));
 
         var state = getChestState(offset_);
         Inventory inv = state.getBlockInventory();
@@ -145,7 +149,7 @@ public class OffsetOperation extends BukkitRunnable {
                 // Yes, there's a race here between turning it into a chest and getting the state.
                 // No, we won't worry about it.
                 state = getChestState(offset);
-                inv = state.getSnapshotInventory();
+                inv = state.getBlockInventory(); // GetSnapshotInventory?
             }
 
             // Place the byte in the chest, OR read into buffer.
@@ -160,7 +164,11 @@ public class OffsetOperation extends BukkitRunnable {
             logger_.info(String.format("Flushing block (%d, %d %d) at end of offsets (%d bytes)", state.getX(), state.getY(), state.getZ(), buffer_.length));
             // One last commit of the inventory update.
             state.update(true);
+        } else {
+            logger_.info(String.format(
+                "Collected data with hash: %d", Arrays.hashCode(buffer_)));
         }
+        this.complete();
     }
 
     private static ItemStack from(byte b) {
@@ -175,5 +183,28 @@ public class OffsetOperation extends BukkitRunnable {
             return 0;
         }
         return (byte)0xff;
+    }
+
+
+    // Sync code.
+    final Lock lock = new ReentrantLock();
+    final Condition guard_done = lock.newCondition();
+    boolean done = false;
+    private void complete() {
+        lock.lock();
+        this.done = true;
+        guard_done.signalAll();
+        lock.unlock();
+    }
+    public boolean await() throws InterruptedException {
+        lock.lock();
+        try {
+            while( !done) {
+                guard_done.await();
+            }
+            return done;
+        } finally {
+            lock.unlock();
+        }
     }
 }
