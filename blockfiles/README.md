@@ -8,24 +8,24 @@ device.
 
 ```sh
 $ go get .
-$ go builda
+$ go build
 $ mkdir [directory]
 $ chmod 0777 [directory]
-$ sudo ./blockfiles [directory] [port]
+$ sudo ./blockfiles [directory] [host:port]
 $ mkfs.ext4 [directory]/blocks
 $ sudo sudo losetup --find --show [directory]
 /dev/loopN
 $ sudo mount /dev/loop0 /mnt/blocks
 ```
 
-This connects to a TCP socket on `[port]`, and sennds out read and write requests to the fake file.
+This connects to a TCP socket on `[host:port]`, and sends out read and write requests to the fake file.
 
 If you're not running the world's most popular block storage device already, you can emulate it with
 the blockTest program:
 
 ```sh
 $ go build ./cmd/blockTest
-$ blockTest [port]
+$ blockTest [host:port]
 ```
 
 ## Why not use NBD?

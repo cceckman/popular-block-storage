@@ -128,11 +128,12 @@ func parseResponse(data []byte) BlockResponse {
 // TODO: This doesn't check errors from the connection reads and writes, which seems failure prone,
 //  at best.
 func getBlocks(port string, send chan BlockRequest, recieve chan BlockResponse) {
-	fmt.Printf("Connecting to blocks at port %s\n", port)
+	fmt.Printf("Connecting to blocks at port %s ... ", port)
 	conn, err := net.Dial("tcp", port)
 	if err != nil {
 		panic(err)
 	}
+	fmt.Printf("Connected!\n")
 	for request := range send {
 		header := make([]byte, 9)
 		binary.BigEndian.PutUint32(header[1:5], request.offset)
