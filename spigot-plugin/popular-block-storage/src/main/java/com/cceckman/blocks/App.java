@@ -1,29 +1,52 @@
 package com.cceckman.blocks;
 
-import java.io.StringWriter;
 import java.io.PrintWriter;
-import java.util.logging.Logger;
+import java.io.StringWriter;
+import java.util.List;
+import java.util.Optional;
 
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.util.Vector;
 
 public class App extends JavaPlugin {
+    private static final int kPort = 4602;
 
     @Override
     public void onEnable() {
-        listener_ = new ListenThread(this);
-        getLogger().info("Starting block device listener...");
-        listener_.start();
-        getLogger().info("Block device listener started!");
+        // Event handler is bound to the main world.
+        final List<World> worlds = getServer().getWorlds();
+        Optional<World> world = Optional.empty();
+
+        // TODO(cceckman) surely there's a find_if in Java.
+        for (final World w : worlds) {
+            if (w.getEnvironment() == World.Environment.NORMAL) {
+                world = Optional.of(w);
+            }
+        }
+        if (!world.isPresent()) {
+            getLogger().severe("Could not find a 'normal'-type world");
+            return;
+        }
+
+        final Location origin = world.get().getSpawnLocation().add(new Vector(5, 0, 0));
+
+        final OffsetOperationFactory f = new OffsetOperationFactory(this.getLogger(), origin);
+        server_ = new Server(this.getLogger(), this, f, port);
+        getLogger().info("Starting block device server...");
+        server_.start();
+        getLogger().info("Block device server started!");
     }
 
     @Override
     public void onDisable() {
         getLogger().info("Stopping block device listener...");
-        listener_.interrupt();
+        server_.interrupt();
         try {
-            listener_.join();
-        } catch (InterruptedException e) {
-            StringWriter sw = new StringWriter();
+            server_.join();
+        } catch (final InterruptedException e) {
+            final StringWriter sw = new StringWriter();
             sw.append("Got interrupted while waiting for listener to close: ");
             e.printStackTrace(new PrintWriter(sw));
             getLogger().warning(sw.toString());
@@ -31,25 +54,5 @@ public class App extends JavaPlugin {
         getLogger().info("Block device listener stopped.");
     }
 
-    private class ListenThread extends Thread {
-        private final App parent_;
-
-        public ListenThread(final App parent) {
-            this.parent_ = parent;
-        }
-
-        @Override
-        public void run() {
-            try {
-                Thread.sleep(1000);
-                parent_.getLogger().info("Listener tick.");
-            } catch (InterruptedException e) {
-                parent_.getLogger().info("Listener received shutdown signal, stopping.");
-                return;
-            }
-        }
-
-    }
-
-    private ListenThread listener_;
+    private Server server_;
 }

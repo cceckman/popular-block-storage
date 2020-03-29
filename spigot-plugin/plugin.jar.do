@@ -1,4 +1,6 @@
 
+set -ex
+
 find . \
     -name '*.java' \
         -or \
