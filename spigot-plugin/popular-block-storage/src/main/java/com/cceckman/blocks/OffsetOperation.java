@@ -6,9 +6,9 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
-import org.bukkit.block.BlockState;
 import org.bukkit.block.data.type.Chest;
 import org.bukkit.event.HandlerList;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
@@ -70,7 +70,8 @@ public class OffsetOperation extends BukkitRunnable {
     }
 
     // Slots in a (small) Minecraft chest. We use one slot per byte.
-    // TODO(cceckman): Use large chests (54 slots)
+    // The way Bukkit's API is set up, we only get half of the inventory at a time, so we only go through slots 0-27.
+    // TODO(cceckman): Use large chests (54 slots)?
     static final int kSlotsPerChest = 27;
     private static int slot(final long offset) {
         return (int)(offset % kSlotsPerChest);
@@ -78,71 +79,72 @@ public class OffsetOperation extends BukkitRunnable {
 
     // We can derive the column index from the other constants.
     private static int column(final long offset) {
-        final int slice_offset = (int)(offset % kBytesPerSlice); // [0, 4096)
-        final int chest_index = slice_offset / kSlotsPerChest;
-        return chest_index / kRowsPerSlice;
+        final int slice_offset = (int)(offset % kBytesPerSlice);  // [0, 4096)
+        final int chest_index = slice_offset / (kSlotsPerChest);  // Index of a pair of chests: [0, 4*19)
+        return chest_index / kRowsPerSlice;                       // Column of pairs-of-chests: 0, 19
     }
 
-    private void ensureChest(Block block) {
-        Location partnerLocation = block.getLocation().clone().add(new Vector(1, 0, 0));
-        BlockState partner = partnerLocation.getBlock().getState();
-        BlockState state = block.getState();
+    private static Block buddy(Location loc) {
+        return loc.clone().add(new Vector(1, 0, 0)).getBlock();
+    }
+
+    private void ensureChest(Location location) {
+        Block block = location.getBlock();
+        // Block buddy = buddy(location);
 
         // If either is not a chest, we're in repair mode.
-        if(state.getType() != Material.CHEST || partner.getType() != Material.CHEST) {
-            state.setType(Material.CHEST);
-            partner.setType(Material.CHEST);
+        if(block.getType() != Material.CHEST /*|| buddy.getType() != Material.CHEST*/) {
+            block.setType(Material.CHEST);
+            //buddy.setType(Material.CHEST);
         }
 
-        // Set all the object data except contents.
-        Chest dataLeft = (Chest)state.getBlockData();
-        Chest dataRight = (Chest)partner.getBlockData();
-        dataLeft.setType(Chest.Type.LEFT);
-        dataRight.setType(Chest.Type.RIGHT);
-        dataLeft.setFacing(BlockFace.NORTH);
-        dataRight.setFacing(BlockFace.NORTH);
+        // Set object metadata.
+        Chest blockData = (Chest)block.getBlockData();
+        // Chest buddyData= (Chest)buddy.getBlockData();
+        blockData.setType(Chest.Type.SINGLE);
+        //blockData.setType(Chest.Type.LEFT);
+        // buddyData.setType(Chest.Type.RIGHT);
+        blockData.setFacing(BlockFace.NORTH);
+        // buddyData.setFacing(BlockFace.NORTH);
 
-        partner.update(true);
-        state.update(true);
-
-        logger_.info(String.format("Turned (%d, %d, %d) into a chest",
-            block.getX(), block.getY(), block.getZ()));
+        block.setBlockData(blockData);
+        // buddy.setBlockData(buddyData);
     }
 
     private Location location(final long offset) {
         int z = slice(offset) * 2;      // Space out slices by 1 block (deep).
-        int y = row(offset_) * 2;       // Space out rows by 1 block (high). Chest has to open!
-        int x = column(offset_) * 3;    // Space out columns by 2 blocks; chest is 2 wide.
+        int y = row(offset) * 2;       // Space out rows by 1 block (high). Chest has to open!
+        int x = column(offset) * 3;    // Space out columns by 2 blocks; chest is 2 wide.
         return origin_.clone().add(new Vector(x,y,z));
+    }
+
+    private org.bukkit.block.Chest getChestState(long offset) {
+        ensureChest(location(offset));
+        return (org.bukkit.block.Chest)location(offset).getBlock().getState();
     }
 
     // Applies this transformation to the world.
     // Must be applied from the main thread!
     public void run() {
         logger_.info(String.format("Received write request for @%d (%d bytes)", offset_, buffer_.length));
-        var world = origin_.getWorld();
 
-        Block block = world.getBlockAt(location(offset_));
-        ensureChest(block);
-        org.bukkit.block.Chest state = (org.bukkit.block.Chest)block.getState();
-        var inv = state.getSnapshotInventory();
+        var state = getChestState(offset_);
+        Inventory inv = state.getBlockInventory();
 
         for(int i = 0; i < buffer_.length; i++) {
             final var offset =  this.offset_ + i;
             final var slot = slot(offset);
 
             if(slot == 0) {
-                // We've rolled over into a new block.
-                // Apply existing state, by force
+                logger_.info(String.format("Flushing block (%d, %d %d) for offset %d", state.getX(), state.getY(), state.getZ(), offset));
+                // Flush state we've collected so far.
                 if(write_) {
                     state.update(true);
                 }
-                // And ensure the next block is a chest.
-                block = world.getBlockAt(location(offset));
-                ensureChest(block);
+                // Get the next block (which we've rolled over into.)
                 // Yes, there's a race here between turning it into a chest and getting the state.
                 // No, we won't worry about it.
-                state = (org.bukkit.block.Chest)block.getState();
+                state = getChestState(offset);
                 inv = state.getSnapshotInventory();
             }
 
@@ -155,18 +157,23 @@ public class OffsetOperation extends BukkitRunnable {
         }
 
         if(write_) {
-            // One last commit.
+            logger_.info(String.format("Flushing block (%d, %d %d) at end of offsets (%d bytes)", state.getX(), state.getY(), state.getZ(), buffer_.length));
+            // One last commit of the inventory update.
             state.update(true);
         }
     }
 
     private static ItemStack from(byte b) {
-        // TODO: Actual mapping
+        if(b == 0) {
+            return null;
+        }
         return new ItemStack(Material.CHEST);
     }
 
     private static byte to(ItemStack s) {
-        // TODO: Actual mapping
+        if (s == null) {
+            return 0;
+        }
         return (byte)0xff;
     }
 }

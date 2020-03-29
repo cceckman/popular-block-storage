@@ -23,13 +23,14 @@ public class Server extends Thread {
     public void run() {
 
         // Dummy task to keep things busy
+        /*
         client_pool_.submit(() -> {
 
             long offset = 0;
             final int length = 1;
             while (true) {
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(10000);
                     logger_.info("Dummy thread tick.");
                 } catch (final InterruptedException e) {
                     logger_.info("Dummy thread received shutdown signal, stopping.");
@@ -39,13 +40,14 @@ public class Server extends Thread {
                 final var buf = new byte[length];
 
                 // Send a fake read event.
-                final OffsetOperation op = op_factory_.newOp(false, offset, buf);
+                final OffsetOperation op = op_factory_.newOp(true, offset, buf);
                 logger_.info("Running task");
                 final var task = op.runTask(plugin_);
                 logger_.info(String.format("Ran task with ID: %d", task.getTaskId()));
-                offset += 17;
+                offset += 51;
             }
         });
+        */
 
         ServerSocket listener;
         try {
@@ -73,7 +75,9 @@ public class Server extends Thread {
         // Wait for an interrupt, then shut things down.
         try {
             while(!this.isInterrupted()) {
-                this.wait();
+                synchronized(this) {
+                    this.wait();
+                }
             }
         } catch (final InterruptedException e) {
             // That's fine!
@@ -126,20 +130,13 @@ public class Server extends Thread {
                     }
                 }
 
-                // TODO(cceckman): Propagate to application.
-                // This will be a synchronous op with the game thread, so that clients see 
-                // operations in the same sequence they were issued.
-                // TODO(cceckman): In the mean time,
-                if(isReadRequest) {
-                    // Generate fake data. Imagine the memory contains 0xFeedFaceCafeF00d all the way down.
-                    // No, this isn't the most efficient way to do this. I was tired and this was most obviously correct.
-                    final var fillWord = ByteBuffer.allocate(8);
-                    fillWord.putLong(0xFeedFaceCafeF00dL);
-                    for(int i = 0 ; i < length; i++) {
-                        int fillOffset = (int) ((offset + i) % 8);
-                        data[i] = fillWord.get(fillOffset);
-                    }
-                }
+                // Propagate to application.
+                // Run as a synchronous operation with the game thread, so that each client has local consistency
+                // (i.e. their operations were in order with respect to their other operations.)
+                final OffsetOperation op = op_factory_.newOp(isWriteRequest, offset, data);
+                logger_.info("Running task from network thread");
+                final var task = op.runTask(plugin_);
+                logger_.info(String.format("Ran task from network thread with ID: %d", task.getTaskId()));
 
                 // Send response.
                 output.write(header);
