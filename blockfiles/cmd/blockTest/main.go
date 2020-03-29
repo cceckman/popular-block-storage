@@ -56,7 +56,7 @@ func handleConnection(conn net.Conn, buffer *[]byte) {
 			panic(err)
 		}
 		kind := header[0]
-		offset := binary.BigEndian.Uint32(header[1:4])
+		offset := binary.BigEndian.Uint32(header[1:5])
 		length := binary.BigEndian.Uint32(header[5:9])
 		if kind == 1 { // Write
 			fmt.Printf("Got write command of length %d to offset %d\n", length, offset)
@@ -69,11 +69,11 @@ func handleConnection(conn net.Conn, buffer *[]byte) {
 			conn.Write(header)
 		} else {
 			fmt.Printf("Got read command of length %d to offset %d\n", length, offset)
-			data := make([]byte, length)
+			data := make([]byte, 9+length)
+			copy(data, header)
 			for i := 0; i <= int(length); i++ {
-				data[i+1] = (*buffer)[int(offset)+i]
+				data[i+9] = (*buffer)[int(offset)+i]
 			}
-			conn.Write(header)
 			conn.Write(data)
 		}
 	}
