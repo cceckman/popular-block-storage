@@ -12,7 +12,6 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.type.Chest;
 import org.bukkit.event.HandlerList;
-import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
@@ -167,14 +166,20 @@ public class OffsetOperation extends BukkitRunnable {
         if(b == 0) {
             return null;
         }
-        return new ItemStack(Material.CHEST);
+        return new ItemStack(Material.values()[b]);
     }
 
     private static byte to(ItemStack s) {
         if (s == null) {
             return 0;
         }
-        return (byte)0xff;
+
+        int ord = s.getType().ordinal();
+        if(ord > 0xff) {
+            return (byte)0xff;
+        }
+
+        return (byte)ord;
     }
 
 
