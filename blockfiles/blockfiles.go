@@ -230,22 +230,22 @@ func (f *File) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse
 }
 
 func (f *File) handleRead(offset, length int) []byte {
-	read := 0
+	received := 0
 	data := make([]byte, length)
-	for ; read < length; read += _PAGE_SIZE {
+	for ; received < length; received += _PAGE_SIZE {
 		var transaction_length int
-		if read+_PAGE_SIZE < length {
+		if received+_PAGE_SIZE < length {
 			transaction_length = _PAGE_SIZE
 		} else {
-			transaction_length = length - read
+			transaction_length = length - received
 		}
 		f.send <- BlockRequest{
 			write:  false,
-			offset: uint32(offset + read),
+			offset: uint32(offset + received),
 			length: uint32(transaction_length),
 		}
 		resp := <-f.receive
-		copy(data[read:(read+transaction_length)], resp.data)
+		copy(data[received:(received+transaction_length)], resp.data)
 	}
 	return data
 }
