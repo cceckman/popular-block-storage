@@ -250,10 +250,6 @@ func (f *File) handleRead(offset, length int) []byte {
 	return data
 }
 
-func (f *File) ReadAll(ctx context.Context) ([]byte, error) {
-	return f.handleRead(0, _DISK_SIZE), nil
-}
-
 func (f *File) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
 	resp.Data = f.handleRead(int(req.Offset), int(req.Size))
 	return nil
