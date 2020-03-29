@@ -260,13 +260,23 @@ func (f *File) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadR
 }
 
 func (f *File) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
-	f.send <- BlockRequest{
-		write:  true,
-		offset: uint32(req.Offset),
-		length: uint32(len(req.Data)),
-		data:   req.Data,
+	written := 0
+	length := int(len(req.Data))
+	for ; written < length; written += _PAGE_SIZE {
+		var transaction_length int
+		if written+_PAGE_SIZE < length {
+			transaction_length = _PAGE_SIZE
+		} else {
+			transaction_length = length - written
+		}
+		f.send <- BlockRequest{
+			write:  true,
+			offset: uint32(int(req.Offset) + written),
+			length: uint32(transaction_length),
+			data:   req.Data[written:(written + transaction_length)],
+		}
+		_ = <-f.receive
 	}
-	_ = <-f.receive
 	return nil
 }
 
