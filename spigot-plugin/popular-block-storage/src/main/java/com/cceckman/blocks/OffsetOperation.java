@@ -88,13 +88,19 @@ public class OffsetOperation extends BukkitRunnable {
         return chest_index / kRowsPerSlice;                       // Column of pairs-of-chests: 0, 19
     }
 
-    private static Block buddy(Location loc) {
-        return loc.clone().add(new Vector(1, 0, 0)).getBlock();
+    private Block buddy(final long offset) {
+        final int col = column(offset);
+        // "Even" columns have a buddy at +1; "odd" columns have a buddy at -1.
+        int step = -1;
+        if(col % 1 == 0) {
+            step = 1;
+        }
+        return location(offset).clone().add(new Vector(step, 0, 0)).getBlock();
     }
 
-    private void ensureChest(Location location) {
-        Block block = location.getBlock();
-        // Block buddy = buddy(location);
+    private void ensureChest(final long offset) {
+        Block block = location(offset).getBlock();
+        // Block buddy = buddy(offset);
 
         // If either is not a chest, we're in repair mode.
         if(block.getType() != Material.CHEST /*|| buddy.getType() != Material.CHEST*/) {
@@ -118,13 +124,11 @@ public class OffsetOperation extends BukkitRunnable {
     private Location location(final long offset) {
         int z = slice(offset) * 2;      // Space out slices by 1 block (deep).
         int y = row(offset) * 2;       // Space out rows by 1 block (high). Chest has to open!
-        int x = column(offset) * 3;    // Space out columns by 2 blocks; chest is 2 wide.
+        // Column takes some trickiness: "even" columns are at N*3, "odd" columns at N*3+1.
+        // This gives us the appropriate left/right side of a chest.
+        int col = column(offset);
+        int x = col * 3 + (col % 2);
         return origin_.clone().add(new Vector(x,y,z));
-    }
-
-    private org.bukkit.block.Chest getChestState(long offset) {
-        ensureChest(location(offset));
-        return (org.bukkit.block.Chest)location(offset).getBlock().getState();
     }
 
     // Applies this transformation to the world.
@@ -132,25 +136,13 @@ public class OffsetOperation extends BukkitRunnable {
     public void run() {
         logger_.info(String.format("Received request for @%d (%d bytes)", offset_, buffer_.length));
 
-        var state = getChestState(offset_);
-        Inventory inv = state.getBlockInventory();
-
         for(int i = 0; i < buffer_.length; i++) {
             final var offset =  this.offset_ + i;
             final var slot = slot(offset);
 
-            if(slot == 0) {
-                logger_.info(String.format("Flushing block (%d, %d %d) for offset %d", state.getX(), state.getY(), state.getZ(), offset));
-                // Flush state we've collected so far.
-                if(write_) {
-                    state.update(true);
-                }
-                // Get the next block (which we've rolled over into.)
-                // Yes, there's a race here between turning it into a chest and getting the state.
-                // No, we won't worry about it.
-                state = getChestState(offset);
-                inv = state.getBlockInventory(); // GetSnapshotInventory?
-            }
+            ensureChest(offset);
+            var block = (org.bukkit.block.Chest)location(offset).getBlock().getState();
+            var inv = block.getSnapshotInventory();
 
             // Place the byte in the chest, OR read into buffer.
             if(write_) {
@@ -158,13 +150,13 @@ public class OffsetOperation extends BukkitRunnable {
             } else {
                 buffer_[i] = to(inv.getItem(slot));
             }
+
+            // Commit the state-change back to the block.
+            block.update(true);
         }
 
-        if(write_) {
-            logger_.info(String.format("Flushing block (%d, %d %d) at end of offsets (%d bytes)", state.getX(), state.getY(), state.getZ(), buffer_.length));
-            // One last commit of the inventory update.
-            state.update(true);
-        } else {
+        // logger_.info(String.format("Flushing block (%d, %d %d) at end of offsets (%d bytes)", state.getX(), state.getY(), state.getZ(), buffer_.length));
+        if(!write_) {
             logger_.info(String.format(
                 "Collected data with hash: %d", Arrays.hashCode(buffer_)));
         }

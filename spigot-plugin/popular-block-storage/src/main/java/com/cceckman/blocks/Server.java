@@ -150,6 +150,9 @@ public class Server extends Thread {
                     "Connection %d: Scheduled task with ID %d, awaiting completion", connectionNumber, task.getTaskId()));
                 op.await();
 
+                logger_.info(String.format(
+                    "Connection %d: Completed task %d on game thread", connectionNumber, task.getTaskId()));
+
                 // Send response.
                 output.write(header);
                 if(isReadRequest) {
