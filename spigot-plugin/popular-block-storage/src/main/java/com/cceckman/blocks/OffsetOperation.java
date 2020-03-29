@@ -145,9 +145,9 @@ public class OffsetOperation extends BukkitRunnable {
 
             // Place the byte in the chest, OR read into buffer.
             if(write_) {
-                inv.setItem(slot, from(buffer_[i]));
+                inv.setItem(slot, Materials.value(buffer_[i]));
             } else {
-                buffer_[i] = to(inv.getItem(slot));
+                buffer_[i] = Materials.value(inv.getItem(slot));
             }
 
             // Commit the state-change back to the block.
@@ -161,27 +161,6 @@ public class OffsetOperation extends BukkitRunnable {
         }
         this.complete();
     }
-
-    private static ItemStack from(byte b) {
-        if(b == 0) {
-            return null;
-        }
-        return new ItemStack(Material.values()[b]);
-    }
-
-    private static byte to(ItemStack s) {
-        if (s == null) {
-            return 0;
-        }
-
-        int ord = s.getType().ordinal();
-        if(ord > 0xff) {
-            return (byte)0xff;
-        }
-
-        return (byte)ord;
-    }
-
 
     // Sync code.
     final Lock lock = new ReentrantLock();
