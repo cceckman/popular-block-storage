@@ -162,10 +162,12 @@ public class Server extends Thread {
                 }
             }
         } catch (IOException e) {
-            logger_.warning("Connection %d got IO exception during read phase, shutting down");
+            logger_.warning(String.format(
+                "Connection %d got IO exception during read phase, shutting down", connectionNumber));
             e.printStackTrace();
         } catch (InterruptedException e) {
-            logger_.warning("Connection %d got interrupt exception during read phase, shutting down");
+            logger_.warning(String.format(
+                "Connection %d got interrupt exception during read phase, shutting down", connectionNumber));
             e.printStackTrace();
         }
 
