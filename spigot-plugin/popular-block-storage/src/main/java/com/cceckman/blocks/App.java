@@ -5,8 +5,10 @@ import java.io.StringWriter;
 import java.util.List;
 import java.util.Optional;
 
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.util.Vector;
 
 public class App extends JavaPlugin {
 
@@ -26,7 +28,10 @@ public class App extends JavaPlugin {
             getLogger().severe("Could not find a 'normal'-type world");
             return;
         }
-        OffsetOperationFactory f = new OffsetOperationFactory(this.getLogger(), world.get());
+
+        final Location origin = world.get().getSpawnLocation().add(new Vector(5, 0, 0));
+
+        final OffsetOperationFactory f = new OffsetOperationFactory(this.getLogger(), origin);
         server_ = new Server(this.getLogger(), this, f);
         getLogger().info("Starting block device server...");
         server_.start();

@@ -18,7 +18,7 @@ public class Server extends Thread {
     @Override
     public void run() {
         long offset = 0;
-        final long length = 4096;
+        final int length = 4096;
         while (true) {
             try {
                 Thread.sleep(1000);
@@ -28,12 +28,14 @@ public class Server extends Thread {
                 return;
             }
 
+            var buf = new byte[length];
+
             // Send a fake event.
-            OffsetOperation op = op_factory_.newOp(offset, length);
+            OffsetOperation op = op_factory_.newOp(offset, buf);
             logger_.info("Running task");
             var task = op.runTask(plugin_);
             logger_.info(String.format("Ran task with ID: %d", task.getTaskId()));
-            offset += length;
+            offset += 1;
         }
     }
 }

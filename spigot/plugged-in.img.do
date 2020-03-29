@@ -7,7 +7,9 @@ redo-ifchange \
     ../spigot-plugin/plugin.jar \
     spigot-outputs \
     base.Dockerfile \
-    plugged-in.Dockerfile
+    plugged-in.Dockerfile \
+    server.properties \
+    bukkit.yml
 
 # Copy the plugin to this directory, so it's available to Docker.
 cp ../spigot-plugin/plugin.jar output/plugin.jar
