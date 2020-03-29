@@ -7,5 +7,5 @@ docker images prune -a
 rm -rf spigot/output
 rm -rf spigot/world
 
-rm -rf plugin/plugin.jar
+rm -rf spigot-plugin/plugin.jar
 { cd spigot-plugin/popular-block-storage && mvn clean; }
