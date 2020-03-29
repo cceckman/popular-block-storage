@@ -5,6 +5,7 @@ import java.io.StringWriter;
 import java.util.List;
 import java.util.Optional;
 
+import org.bukkit.GameRule;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -31,6 +32,10 @@ public class App extends JavaPlugin {
             getLogger().severe("Could not find a 'normal'-type world");
             return;
         }
+
+        // For demo purposes, in the words of Matt Mercer:
+        world.get().setFullTime(6000);
+        world.get().setGameRule(GameRule.DO_DAYLIGHT_CYCLE, false);
 
         final Location origin = world.get().getSpawnLocation().add(new Vector(5, 0, 0));
 
