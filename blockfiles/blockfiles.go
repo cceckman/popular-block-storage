@@ -19,7 +19,7 @@ import (
 )
 
 // Size of the remote buffer in bytes.
-const _DISK_SIZE = 1 * 1024
+const _DISK_SIZE = 1 * 1024 * 1024
 
 // How many bytes to transfer in each transaction.
 const _PAGE_SIZE = 1024
