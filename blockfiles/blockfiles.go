@@ -135,7 +135,7 @@ func getBlocks(port string, send chan BlockRequest, recieve chan BlockResponse) 
 	}
 	for request := range send {
 		header := make([]byte, 9)
-		binary.BigEndian.PutUint32(header[1:4], request.offset)
+		binary.BigEndian.PutUint32(header[1:5], request.offset)
 		binary.BigEndian.PutUint32(header[5:9], request.length)
 		if request.write {
 			fmt.Printf("Sending a write request with length %s and offset %s", request.length, request.offset)
@@ -143,7 +143,8 @@ func getBlocks(port string, send chan BlockRequest, recieve chan BlockResponse) 
 			conn.Write(header)
 			conn.Write(request.data)
 			response := make([]byte, 9)
-			conn.Read(response)
+			for n := 0; n != 9; n, _ = conn.Read(response) {
+			}
 			recieve <- parseResponse(response)
 		} else {
 			fmt.Printf("Sending a read request with length %s and offset %s", request.length, request.offset)
@@ -151,6 +152,8 @@ func getBlocks(port string, send chan BlockRequest, recieve chan BlockResponse) 
 			conn.Write(header)
 			response := make([]byte, 9+request.length)
 			conn.Read(response)
+			for n := 0; n != 9+int(request.length); n, _ = conn.Read(response) {
+			}
 			recieve <- parseResponse(response)
 		}
 	}
@@ -214,8 +217,9 @@ func (f *File) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse
 }
 
 func (f *File) ReadAll(ctx context.Context) ([]byte, error) {
+	fmt.Printf("Read All!")
 	f.send <- BlockRequest{
-		write:  true,
+		write:  false,
 		offset: 0,
 		length: _SIZE,
 	}
@@ -225,7 +229,7 @@ func (f *File) ReadAll(ctx context.Context) ([]byte, error) {
 
 func (f *File) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
 	f.send <- BlockRequest{
-		write:  true,
+		write:  false,
 		offset: uint32(req.Offset),
 		length: uint32(req.Size),
 	}

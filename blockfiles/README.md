@@ -9,7 +9,7 @@ device.
 ```sh
 $ go build
 $ sudo ./blockfiles [directory] [port]
-$ mkfs.ext4 [directory]
+$ mkfs.ext4 [directory]/blocks
 $ sudo sudo losetup --find --show [directory]
 /dev/loopN
 $ sudo mount /dev/loop0 /mnt/blocks
@@ -21,7 +21,7 @@ If you're not running the world's most popular block storage device already, you
 the blockTest program:
 
 ```sh
-$ go build cmd/blockTest
+$ go build ./cmd/blockTest
 $ blockTest [port]
 ```
 
