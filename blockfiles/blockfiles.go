@@ -138,7 +138,7 @@ func getBlocks(port string, send chan BlockRequest, recieve chan BlockResponse) 
 		binary.BigEndian.PutUint32(header[1:5], request.offset)
 		binary.BigEndian.PutUint32(header[5:9], request.length)
 		if request.write {
-			fmt.Printf("Sending a write request with length %d and offset %d", request.length, request.offset)
+			fmt.Printf("Sending a write request with length %d and offset %d\n", request.length, request.offset)
 			header[0] = 1
 			conn.Write(header)
 			conn.Write(request.data)
@@ -152,7 +152,7 @@ func getBlocks(port string, send chan BlockRequest, recieve chan BlockResponse) 
 			}
 			recieve <- parseResponse(response)
 		} else {
-			fmt.Printf("Sending a read request with length %d and offset %d", request.length, request.offset)
+			fmt.Printf("Sending a read request with length %d and offset %d\n", request.length, request.offset)
 			header[0] = 0
 			conn.Write(header)
 			response := make([]byte, 9+request.length)
