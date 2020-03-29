@@ -8,7 +8,9 @@ device.
 
 ```sh
 $ go get .
-$ go build
+$ go builda
+$ mkdir [directory]
+$ chmod 0777 [directory]
 $ sudo ./blockfiles [directory] [port]
 $ mkfs.ext4 [directory]/blocks
 $ sudo sudo losetup --find --show [directory]
@@ -16,7 +18,7 @@ $ sudo sudo losetup --find --show [directory]
 $ sudo mount /dev/loop0 /mnt/blocks
 ```
 
-This exposes a unix socket on `[port]`, which sends out read and write requests as they come in.
+This connects to a TCP socket on `[port]`, and sennds out read and write requests to the fake file.
 
 If you're not running the world's most popular block storage device already, you can emulate it with
 the blockTest program:

@@ -156,7 +156,6 @@ func getBlocks(port string, send chan BlockRequest, recieve chan BlockResponse) 
 			header[0] = 0
 			conn.Write(header)
 			response := make([]byte, 9+request.length)
-			conn.Read(response)
 			got := 0
 			for n := 0; n != 9+int(request.length); got, _ = conn.Read(response[n:]) {
 				if got != 0 {
