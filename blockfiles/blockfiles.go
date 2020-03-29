@@ -262,7 +262,7 @@ func (f *File) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadR
 func (f *File) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
 	written := 0
 	length := int(len(req.Data))
-	for written < length; {
+	for written < length {
 		var transaction_length int
 		if written+_PAGE_SIZE < length {
 			transaction_length = _PAGE_SIZE
@@ -276,7 +276,7 @@ func (f *File) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.Wri
 			data:   req.Data[written:(written + transaction_length)],
 		}
 		my_resp := <-f.receive
-		written += my_resp.length;
+		written += my_resp.length
 	}
 	resp.Size = written
 	return nil
