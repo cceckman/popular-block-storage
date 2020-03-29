@@ -92,7 +92,7 @@ func New(mountpoint, port string) {
 
 func parseResponse(data []byte) BlockResponse {
 	kind := data[0]
-	offset := binary.BigEndian.Uint32(data[1:4])
+	offset := binary.BigEndian.Uint32(data[1:5])
 	length := binary.BigEndian.Uint32(data[5:9])
 	if kind == 0 { // Reads should get data back.
 		read := make([]byte, length)
@@ -143,7 +143,12 @@ func getBlocks(port string, send chan BlockRequest, recieve chan BlockResponse) 
 			conn.Write(header)
 			conn.Write(request.data)
 			response := make([]byte, 9)
-			for n := 0; n != 9; n, _ = conn.Read(response) {
+			got := 0
+			for n := 0; n != 9; got, _ = conn.Read(response[n:]) {
+				if got != 0 {
+					n += got
+					fmt.Printf("Got response of length %d/%d\n", n, 9)
+				}
 			}
 			recieve <- parseResponse(response)
 		} else {
@@ -152,7 +157,12 @@ func getBlocks(port string, send chan BlockRequest, recieve chan BlockResponse) 
 			conn.Write(header)
 			response := make([]byte, 9+request.length)
 			conn.Read(response)
-			for n := 0; n != 9+int(request.length); n, _ = conn.Read(response) {
+			got := 0
+			for n := 0; n != 9+int(request.length); got, _ = conn.Read(response[n:]) {
+				if got != 0 {
+					n += got
+					fmt.Printf("Got response of length %d/%d\n", n, 9+int(request.length))
+				}
 			}
 			recieve <- parseResponse(response)
 		}
@@ -221,7 +231,7 @@ func (f *File) ReadAll(ctx context.Context) ([]byte, error) {
 	f.send <- BlockRequest{
 		write:  false,
 		offset: 0,
-		length: _SIZE,
+		length: _SIZE - 1,
 	}
 	my_resp := <-f.receive
 	return my_resp.data, nil

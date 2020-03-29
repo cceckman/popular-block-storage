@@ -64,7 +64,9 @@ func handleConnection(conn net.Conn, buffer *[]byte) {
 			conn.Read(data)
 			fmt.Printf("Writing data %s\n", string(data))
 			for i := 0; i < len(data); i++ {
-				(*buffer)[int(offset)+i] = data[i]
+				if (int(offset) + i + 1) < len(*buffer) {
+					(*buffer)[int(offset)+i] = data[i]
+				}
 			}
 			conn.Write(header)
 		} else {
@@ -72,7 +74,9 @@ func handleConnection(conn net.Conn, buffer *[]byte) {
 			data := make([]byte, 9+length)
 			copy(data, header)
 			for i := 0; i <= int(length); i++ {
-				data[i+9] = (*buffer)[int(offset)+i]
+				if (int(offset) + i + 1) < len(*buffer) {
+					data[i+9] = (*buffer)[int(offset)+i]
+				}
 			}
 			conn.Write(data)
 		}
