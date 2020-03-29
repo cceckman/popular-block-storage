@@ -7,6 +7,7 @@ device.
 ## How to use this?
 
 ```sh
+$ go get .
 $ go build
 $ sudo ./blockfiles [directory] [port]
 $ mkfs.ext4 [directory]/blocks
