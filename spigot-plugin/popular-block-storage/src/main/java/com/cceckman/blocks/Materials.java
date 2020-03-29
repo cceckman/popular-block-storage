@@ -35,7 +35,7 @@ public class Materials {
         return by_byte[b];
     }
     public static byte value(ItemStack s) {
-        if(s == null || by_material.containsKey(s.getType())) {
+        if(s == null || !by_material.containsKey(s.getType())) {
             return 0;
         }
         return by_material.get(s.getType());
