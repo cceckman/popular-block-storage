@@ -15,6 +15,8 @@ public class App extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        Materials.Print(getLogger());
+
         // Event handler is bound to the main world.
         final List<World> worlds = getServer().getWorlds();
         Optional<World> world = Optional.empty();

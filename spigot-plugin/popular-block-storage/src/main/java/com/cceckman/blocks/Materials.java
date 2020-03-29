@@ -4,6 +4,7 @@ import static java.lang.Byte.toUnsignedInt;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Logger;
 
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
@@ -41,5 +42,12 @@ public class Materials {
             return 0;
         }
         return by_material.get(s.getType());
+    }
+
+    public static void Print(Logger l) {
+        l.info(String.format("Byte %d: null", 0));
+        for(byte i = 1; i < 256; i++) {
+            l.info(String.format("Byte %d: %s", i, value(i).getType().toString()));
+        }
     }
 }
