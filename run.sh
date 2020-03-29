@@ -4,6 +4,8 @@
 
 set -ex
 
+echo $PATH
+
 if ! test -d $PWD/world
 then
     mkdir $PWD/world

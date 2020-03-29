@@ -18,8 +18,11 @@ import (
 	_ "bazil.org/fuse/fs/fstestutil"
 )
 
-// Size of the remote buffer.
-const _SIZE = 1024 * 1024
+// Size of the remote buffer in bytes.
+const _DISK_SIZE = 1024 * 1024
+
+// How many bytes to transfer in each transaction.
+const _PAGE_SIZE = 1024
 
 // TODO(slongfield): For faster reads, we should cache the data if we don't write between reads.
 
@@ -213,8 +216,8 @@ type File struct {
 func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
 	a.Inode = 2000
 	a.Mode = 0664
-	a.Size = _SIZE
-	a.Blocks = _SIZE / 512
+	a.Size = _DISK_SIZE
+	a.Blocks = _DISK_SIZE / 512
 	return nil
 }
 
@@ -226,26 +229,33 @@ func (f *File) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse
 	return nil
 }
 
-func (f *File) ReadAll(ctx context.Context) ([]byte, error) {
-	fmt.Printf("Read All!")
-	f.send <- BlockRequest{
-		write:  false,
-		offset: 0,
-		length: _SIZE - 1,
+func (f *File) handleRead(offset, length int) []byte {
+	read := 0
+	data := make([]byte, length)
+	for ; read < length; read += _PAGE_SIZE {
+		var transaction_length int
+		if read+_PAGE_SIZE < length {
+			transaction_length = _PAGE_SIZE
+		} else {
+			transaction_length = length - read
+		}
+		f.send <- BlockRequest{
+			write:  false,
+			offset: uint32(offset + read),
+			length: uint32(transaction_length),
+		}
+		resp := <-f.receive
+		copy(data[read:(read+transaction_length)], resp.data)
 	}
-	my_resp := <-f.receive
-	return my_resp.data, nil
+	return data
+}
+
+func (f *File) ReadAll(ctx context.Context) ([]byte, error) {
+	return f.handleRead(0, _DISK_SIZE), nil
 }
 
 func (f *File) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
-	f.send <- BlockRequest{
-		write:  false,
-		offset: uint32(req.Offset),
-		length: uint32(req.Size),
-	}
-	my_resp := <-f.receive
-	resp.Data = my_resp.data
-
+	resp.Data = f.handleRead(int(req.Offset), int(req.Size))
 	return nil
 }
 
