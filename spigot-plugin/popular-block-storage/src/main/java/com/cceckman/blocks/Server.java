@@ -125,7 +125,10 @@ public class Server extends Thread {
                         totalRead += read;
                     }
                 }
-                // TODO(cceckman): Propagate to application
+
+                // TODO(cceckman): Propagate to application.
+                // This will be a synchronous op with the game thread, so that clients see 
+                // operations in the same sequence they were issued.
                 // TODO(cceckman): In the mean time,
                 if(isReadRequest) {
                     // Generate fake data. Imagine the memory contains 0xFeedFaceCafeF00d all the way down.
