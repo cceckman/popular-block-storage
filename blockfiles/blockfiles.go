@@ -276,7 +276,7 @@ func (f *File) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.Wri
 			data:   req.Data[written:(written + transaction_length)],
 		}
 		my_resp := <-f.receive
-		written += my_resp.length
+		written += int(my_resp.length)
 	}
 	resp.Size = written
 	return nil
