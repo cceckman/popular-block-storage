@@ -11,38 +11,17 @@ import (
 	"log"
 	"net"
 	"os"
-	"sync"
 	"syscall"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	_ "bazil.org/fuse/fs/fstestutil"
-	"bazil.org/fuse/fuseutil"
 )
 
-type RWBuf struct {
-	buffer []byte
-	lock   sync.RWMutex
-}
+// Size of the remote buffer.
+const _SIZE = 1024 * 1024
 
-func (b *RWBuf) Read(offset, length int) []byte {
-	b.lock.RLock()
-	defer b.lock.RUnlock()
-	if (offset + length) > len(b.buffer) {
-		length = len(b.buffer) - offset
-	}
-	data := make([]byte, length)
-	for i := 0; i <= int(length); i++ {
-		data[i] = b.buffer[offset+i]
-	}
-	return data
-}
-
-func (b *RWBuf) Write(offset, length int, data []byte) {
-	b.lock.Lock()
-	defer b.lock.Unlock()
-
-}
+// TODO(slongfield): For faster reads, we should cache the data if we don't write between reads.
 
 func usage() {
 	fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
@@ -60,11 +39,24 @@ func main() {
 	}
 	mountpoint := flag.Arg(0)
 	port := flag.Arg(1)
-	buffer := make([]byte, 1024*1024)
-	New(mountpoint, port, &buffer)
+	New(mountpoint, port)
 }
 
-func New(mountpoint, port string, buffer *[]byte) {
+type BlockRequest struct {
+	write  bool
+	offset uint32
+	length uint32
+	data   []byte
+}
+
+type BlockResponse struct {
+	write  bool
+	offset uint32
+	length uint32
+	data   []byte
+}
+
+func New(mountpoint, port string) {
 	c, err := fuse.Mount(
 		mountpoint,
 		fuse.FSName("blocks"),
@@ -78,9 +70,13 @@ func New(mountpoint, port string, buffer *[]byte) {
 	}
 	defer c.Close()
 
-	go serve(port, buffer)
+	requests := make(chan BlockRequest)
+	responses := make(chan BlockResponse)
+	defer close(requests)
+	defer close(responses)
+	go getBlocks(port, requests, responses)
 
-	system := FS{d: Dir{f: File{buffer}}}
+	system := FS{d: Dir{f: File{requests, responses}}}
 	err = fs.Serve(c, &system)
 	if err != nil {
 		log.Fatal(err)
@@ -94,64 +90,68 @@ func New(mountpoint, port string, buffer *[]byte) {
 
 }
 
-// Serves up the buffer for random manipulation via a socket.
-// Panic if it sees any errors, since this is a very jumpy server.
-func serve(port string, buffer *[]byte) {
-	fmt.Printf("Strated listening on port %s\n", port)
-	ln, err := net.Listen("tcp", port)
-	if err != nil {
-		panic(err)
-	}
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			panic(err)
+func parseResponse(data []byte) BlockResponse {
+	kind := data[0]
+	offset := binary.BigEndian.Uint32(data[1:4])
+	length := binary.BigEndian.Uint32(data[5:9])
+	if kind == 0 { // Reads should get data back.
+		read := make([]byte, length)
+		for i := 0; i < int(length); i++ {
+			read[i] = data[i+9]
 		}
-		go handleConnection(conn, buffer)
+		return BlockResponse{
+			write:  false,
+			offset: offset,
+			length: length,
+			data:   read,
+		}
+	}
+	return BlockResponse{
+		write:  true,
+		offset: offset,
+		length: length,
+		data:   nil,
 	}
 }
 
-// handleConnection handles the TCP connection.
+// getBlocks handles the TCP connection.
 // Request protocol is:
-//  byte 0:           0 read / 1 write
-//  byte 1-8:         offset
-//  byte 9-16:        length
-//  byte 17...length: data (if write)
+//  byte 0:          0 read / 1 write
+//  byte 1-4:        offset
+//  byte 5-9:        length
+//  byte 9...length: data (if write)
 // Response protocol is:
 //  byte 0:           0 read / 1 write
-//  byte 1...length:  data
+//  byte 1-4:         offset
+//  byte 5-9:         length
+//  byte 9...length:  data (if read)
 // TODO: This doesn't check errors from the connection reads and writes, which seems failure prone,
 //  at best.
-func handleConnection(conn net.Conn, buffer *[]byte) {
-	for {
-		header := make([]byte, 17)
-		n, err := conn.Read(header)
-		if n != 17 {
-			continue
-		}
-		if err != nil {
-			panic(err)
-		}
-		kind := header[0]
-		offset := binary.BigEndian.Uint64(header[1:9])
-		length := binary.BigEndian.Uint64(header[9:17])
-		if kind == 1 { // Write
-			fmt.Printf("Got write command of length %d to offset %d\n", length, offset)
-			data := make([]byte, length)
-			conn.Read(data)
-			fmt.Printf("Writing data %s\n", string(data))
-			for i := 0; i < len(data); i++ {
-				(*buffer)[int(offset)+i] = data[i]
-			}
-			conn.Write([]byte{kind})
+func getBlocks(port string, send chan BlockRequest, recieve chan BlockResponse) {
+	fmt.Printf("Connecting to blocks at port %s\n", port)
+	conn, err := net.Dial("tcp", port)
+	if err != nil {
+		panic(err)
+	}
+	for request := range send {
+		header := make([]byte, 9)
+		binary.BigEndian.PutUint32(header[1:4], request.offset)
+		binary.BigEndian.PutUint32(header[5:9], request.length)
+		if request.write {
+			fmt.Printf("Sending a write request with length %s and offset %s", request.length, request.offset)
+			header[0] = 0
+			conn.Write(header)
+			conn.Write(request.data)
+			response := make([]byte, 9)
+			conn.Read(response)
+			recieve <- parseResponse(response)
 		} else {
-			fmt.Printf("Got read command of length %d to offset %d\n", length, offset)
-			data := make([]byte, length+1)
-			data[0] = kind
-			for i := 0; i <= int(length); i++ {
-				data[i+1] = (*buffer)[int(offset)+i]
-			}
-			conn.Write(data)
+			fmt.Printf("Sending a read request with length %s and offset %s", request.length, request.offset)
+			header[0] = 1
+			conn.Write(header)
+			response := make([]byte, 9+request.length)
+			conn.Read(response)
+			recieve <- parseResponse(response)
 		}
 	}
 }
@@ -193,14 +193,15 @@ func (d *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 
 // File implements both Node and Handle for the blocks File.
 type File struct {
-	contents *[]byte
+	send    chan BlockRequest
+	receive chan BlockResponse
 }
 
 func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
 	a.Inode = 2000
 	a.Mode = 0664
-	a.Size = uint64(len(*f.contents))
-	a.Blocks = uint64(len(*f.contents)) / 512
+	a.Size = _SIZE
+	a.Blocks = _SIZE / 512
 	return nil
 }
 
@@ -213,24 +214,35 @@ func (f *File) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse
 }
 
 func (f *File) ReadAll(ctx context.Context) ([]byte, error) {
-	return []byte(*f.contents), nil
+	f.send <- BlockRequest{
+		write:  true,
+		offset: 0,
+		length: _SIZE,
+	}
+	my_resp := <-f.receive
+	return my_resp.data, nil
 }
 
 func (f *File) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
-	fuseutil.HandleRead(req, resp, *f.contents)
+	f.send <- BlockRequest{
+		write:  true,
+		offset: uint32(req.Offset),
+		length: uint32(req.Size),
+	}
+	my_resp := <-f.receive
+	resp.Data = my_resp.data
+
 	return nil
 }
 
 func (f *File) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
-	if int(req.Offset)+len(req.Data) > len(*f.contents) {
-		new_contents := make([]byte, int(req.Offset)+len(req.Data))
-		copy(new_contents, *f.contents)
-		f.contents = &new_contents
+	f.send <- BlockRequest{
+		write:  true,
+		offset: uint32(req.Offset),
+		length: uint32(len(req.Data)),
+		data:   req.Data,
 	}
-	for i := 0; i < len(req.Data); i++ {
-		(*f.contents)[int(req.Offset)+i] = req.Data[i]
-	}
-	resp.Size = len(req.Data)
+	_ = <-f.receive
 	return nil
 }
 

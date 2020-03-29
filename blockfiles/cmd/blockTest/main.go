@@ -4,15 +4,15 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
-	"io"
 	"net"
 	"os"
-	"strconv"
 )
+
+const _SIZE = 1024 * 1024
 
 func usage() {
 	fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
-	fmt.Fprintf(os.Stderr, "  %s [port] [read|write] [offset] [length|values]", os.Args[0])
+	fmt.Fprintf(os.Stderr, "  %s [port]", os.Args[0])
 	flag.PrintDefaults()
 }
 
@@ -20,53 +20,61 @@ func main() {
 	flag.Usage = usage
 	flag.Parse()
 
-	if flag.NArg() != 4 {
-		fmt.Printf("Got %d args", flag.NArg())
+	if flag.NArg() != 1 {
+		fmt.Printf("Got %d args\n", flag.NArg())
 		usage()
 		os.Exit(2)
 	}
 
-	conn, err := net.Dial("tcp", flag.Arg(0))
+	buf := make([]byte, _SIZE)
+	serve(flag.Arg(0), &buf)
+}
+
+func serve(port string, buffer *[]byte) {
+	fmt.Printf("Started listening on port %s\n", port)
+	ln, err := net.Listen("tcp", port)
 	if err != nil {
 		panic(err)
 	}
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			panic(err)
+		}
+		go handleConnection(conn, buffer)
+	}
+}
 
-	if flag.Arg(1) == "read" {
-		header := make([]byte, 17)
-		offset, err := strconv.Atoi(flag.Arg(2))
+func handleConnection(conn net.Conn, buffer *[]byte) {
+	for {
+		header := make([]byte, 9)
+		n, err := conn.Read(header)
+		if n != 9 {
+			continue
+		}
 		if err != nil {
 			panic(err)
 		}
-		length, err := strconv.Atoi(flag.Arg(3))
-		if err != nil {
-			panic(err)
+		kind := header[0]
+		offset := binary.BigEndian.Uint32(header[1:4])
+		length := binary.BigEndian.Uint32(header[5:9])
+		if kind == 1 { // Write
+			fmt.Printf("Got write command of length %d to offset %d\n", length, offset)
+			data := make([]byte, length)
+			conn.Read(data)
+			fmt.Printf("Writing data %s\n", string(data))
+			for i := 0; i < len(data); i++ {
+				(*buffer)[int(offset)+i] = data[i]
+			}
+			conn.Write(header)
+		} else {
+			fmt.Printf("Got read command of length %d to offset %d\n", length, offset)
+			data := make([]byte, length)
+			for i := 0; i <= int(length); i++ {
+				data[i+1] = (*buffer)[int(offset)+i]
+			}
+			conn.Write(header)
+			conn.Write(data)
 		}
-		binary.BigEndian.PutUint64(header[1:9], uint64(offset))
-		binary.BigEndian.PutUint64(header[9:17], uint64(length))
-		conn.Write(header)
-		data := make([]byte, length)
-		conn.Read(data)
-		fmt.Println(string(data[1:]))
-		conn.Write([]byte(io.EOF))
-	} else if flag.Arg(1) == "write" {
-		offset, err := strconv.Atoi(flag.Arg(2))
-		if err != nil {
-			panic(err)
-		}
-		length := len(flag.Arg(3))
-		bufsize := 17 + length
-		buf := make([]byte, bufsize)
-		buf[0] = 1
-		binary.BigEndian.PutUint64(buf[1:9], uint64(offset))
-		binary.BigEndian.PutUint64(buf[9:17], uint64(length))
-		for i := 0; i < length; i++ {
-			buf[i+17] = flag.Arg(3)[i]
-		}
-		conn.Write(buf)
-		conn.Write([]byte(io.EOF))
-	} else {
-		fmt.Printf("Unknown command %s", flag.Arg(1))
-		usage()
-		os.Exit(2)
 	}
 }
