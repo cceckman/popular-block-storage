@@ -78,6 +78,7 @@ func handleConnection(conn net.Conn, buffer *[]byte) {
 					data[i+9] = (*buffer)[int(offset)+i]
 				}
 			}
+			fmt.Printf("Reading data %s\n", string(data[9:]))
 			conn.Write(data)
 		}
 	}
