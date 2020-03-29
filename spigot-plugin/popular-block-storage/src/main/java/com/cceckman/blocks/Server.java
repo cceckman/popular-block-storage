@@ -1,42 +1,149 @@
 package com.cceckman.blocks;
 
+import java.io.IOException;
 import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.logging.Logger;
+import java.nio.ByteBuffer;
 
 import org.bukkit.plugin.Plugin;
 
 public class Server extends Thread {
-    public Server(final Logger logger, final Plugin p, final OffsetOperationFactory f, int port) {
+    public Server(final Logger logger, final Plugin p, final OffsetOperationFactory f, final int port) {
         this.logger_ = logger;
         this.plugin_ = p;
         this.op_factory_ = f;
         this.port_ = port;
+        this.client_pool_ = Executors.newFixedThreadPool(16);
     }
 
     @Override
     public void run() {
-        // Start up listener...
-        // var socket = new ServerSocket(port_);
 
-        long offset = 0;
-        final int length = 1;
-        while (true) {
-            try {
-                Thread.sleep(500);
-                logger_.info("Server tick.");
-            } catch (final InterruptedException e) {
-                logger_.info("Server received shutdown signal, stopping.");
-                return;
+        // Dummy task to keep things busy
+        client_pool_.submit(() -> {
+
+            long offset = 0;
+            final int length = 1;
+            while (true) {
+                try {
+                    Thread.sleep(500);
+                    logger_.info("Dummy thread tick.");
+                } catch (final InterruptedException e) {
+                    logger_.info("Dummy thread received shutdown signal, stopping.");
+                    return;
+                }
+
+                final var buf = new byte[length];
+
+                // Send a fake event.
+                final OffsetOperation op = op_factory_.newOp(offset, buf);
+                logger_.info("Running task");
+                final var task = op.runTask(plugin_);
+                logger_.info(String.format("Ran task with ID: %d", task.getTaskId()));
+                offset += 17;
             }
+        });
 
-            var buf = new byte[length];
+        ServerSocket listener;
+        try {
+            listener = new ServerSocket(port_);
+        } catch (IOException e) {
+            logger_.severe(String.format("Could not start server: %s", e));
+            return;
+        }
+        while(!this.isInterrupted()) {
+            try{
+                var sock = listener.accept();
+                logger_.info(String.format(
+                    "Server received connection from %s, starting worker", sock.getInetAddress()));
+                client_pool_.submit(() -> {
+                    handleChannel(sock);
+                });
+            } catch(final IOException e) {
+                logger_.warning(String.format("Server received exception in IO loop: %s\nExiting", e.toString()));
+                break;
+            }
+        }
+        try {
+            listener.close();
+        } catch (IOException e) {
+            logger_.warning("Server got error closing socket");
+            e.printStackTrace();
+        }
 
-            // Send a fake event.
-            OffsetOperation op = op_factory_.newOp(offset, buf);
-            logger_.info("Running task");
-            var task = op.runTask(plugin_);
-            logger_.info(String.format("Ran task with ID: %d", task.getTaskId()));
-            offset += 17;
+        client_pool_.shutdownNow();
+    }
+
+    private void handleChannel(Socket s) {
+        try {
+            var input = s.getInputStream();
+            var output = s.getOutputStream();
+            // Read header: r/w byte, offset, length
+            final int headerSize = 1 + 8 + 4;
+            var header = new byte[headerSize];
+            var headerAccess = ByteBuffer.wrap(header);
+            while(true) {
+                int headerBytes = 0;
+                while(headerBytes < headerSize) {
+                    int read = input.read(header, headerBytes, headerSize - headerBytes);
+                    if(read == -1) {
+                        // Reached end of input stream.
+                        throw new IOException("Reached end of stream within header");
+                    }
+                    headerBytes += read;
+                }
+                // Decode header.
+                boolean isReadRequest = header[0] == 0;
+                boolean isWriteRequest = !isReadRequest;
+                long offset = headerAccess.getLong(1);
+                int length = headerAccess.getInt(9);
+
+                // Get data buffer. Yes, we should reuse these. No, we aren't going to.
+                var data = new byte[length];
+                if(isWriteRequest) {
+                    // Read data to write into buffer.
+                    int totalRead= 0;
+                    while(totalRead < length) {
+                        int read = input.read(data, totalRead, length - totalRead);
+                        if(read == -1) {
+                            // Reached end of input stream.
+                            throw new IOException("Reached end of stream while reading data");
+                        }
+                        totalRead += read;
+                    }
+                }
+                // TODO(cceckman): Propagate to application
+                // TODO(cceckman): In the mean time,
+                if(isReadRequest) {
+                    // Generate fake data. Imagine the memory contains 0xFeedFaceCafeF00d all the way down.
+                    // No, this isn't the most efficient way to do this. I was tired and this was most obviously correct.
+                    final var fillWord = ByteBuffer.allocate(8);
+                    fillWord.putLong(0xFeedFaceCafeF00dL);
+                    for(int i = 0 ; i < length; i++) {
+                        int fillOffset = (int) ((offset + i) % 8);
+                        data[i] = fillWord.get(fillOffset);
+                    }
+                }
+
+                // Send response.
+                output.write(header);
+                if(isReadRequest) {
+                    output.write(data);
+                }
+            }
+        } catch (IOException e) {
+            logger_.warning("Handler got exception during read phase");
+            e.printStackTrace();
+        }
+
+        try {
+            s.close();
+        }catch(IOException e) {
+            logger_.warning("Handler got exception during shutdown");
+            e.printStackTrace();
         }
     }
 
@@ -45,5 +152,5 @@ public class Server extends Thread {
     private final OffsetOperationFactory op_factory_;
     private final int port_;
 
-    // private final AbstractExecutorService client_pool_;
+    private final ExecutorService client_pool_;
 }

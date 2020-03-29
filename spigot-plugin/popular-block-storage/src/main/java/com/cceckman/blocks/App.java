@@ -33,7 +33,7 @@ public class App extends JavaPlugin {
         final Location origin = world.get().getSpawnLocation().add(new Vector(5, 0, 0));
 
         final OffsetOperationFactory f = new OffsetOperationFactory(this.getLogger(), origin);
-        server_ = new Server(this.getLogger(), this, f, port);
+        server_ = new Server(this.getLogger(), this, f, kPort);
         getLogger().info("Starting block device server...");
         server_.start();
         getLogger().info("Block device server started!");
