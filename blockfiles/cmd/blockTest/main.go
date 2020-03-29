@@ -73,7 +73,7 @@ func handleConnection(conn net.Conn, buffer *[]byte) {
 			fmt.Printf("Got read command of length %d to offset %d\n", length, offset)
 			data := make([]byte, 9+length)
 			copy(data, header)
-			for i := 0; i <= int(length); i++ {
+			for i := 0; i < int(length); i++ {
 				if (int(offset) + i + 1) < len(*buffer) {
 					data[i+9] = (*buffer)[int(offset)+i]
 				}
