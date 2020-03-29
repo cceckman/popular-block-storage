@@ -26,7 +26,7 @@ public class Materials {
                 break;
             }
 
-            if (material.isItem()) {
+            if (material.isItem() && !material.isAir()) {
                 by_byte[i] = new ItemStack(material);
                 by_material.put(material, (byte) i);
                 i++;
@@ -46,8 +46,12 @@ public class Materials {
 
     public static void Print(Logger l) {
         l.info(String.format("Byte %d: null", 0));
-        for(byte i = 1; i < 256; i++) {
-            l.info(String.format("Byte %d: %s", i, value(i).getType().toString()));
+        for(byte i = 1; i != 0; i++) {
+            try {
+                l.info(String.format("Byte %d: %s", i, value(i).getType().toString()));
+            } catch (Exception e) {
+                l.severe(String.format("Could not get value for byte %d: %s", e));
+            }
         }
     }
 }
