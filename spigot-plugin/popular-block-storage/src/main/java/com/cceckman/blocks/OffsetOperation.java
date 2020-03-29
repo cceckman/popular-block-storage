@@ -5,6 +5,9 @@ import java.util.logging.Logger;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.BlockState;
+import org.bukkit.block.data.type.Chest;
 import org.bukkit.event.HandlerList;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
@@ -79,13 +82,27 @@ public class OffsetOperation extends BukkitRunnable {
     }
 
     private void ensureChest(Block block) {
-        if(block.getType() != Material.CHEST) {
-            Location partnerLocation = block.getLocation().clone().add(new Vector(1, 0, 0));
-            Block partner = partnerLocation.getBlock();
+        Location partnerLocation = block.getLocation().clone().add(new Vector(1, 0, 0));
+        BlockState partner = partnerLocation.getBlock().getState();
+        BlockState state = block.getState();
 
+        // If either is not a chest, we're in repair mode.
+        if(state.getType() != Material.CHEST || state.getType() != Material.CHEST) {
+            state.setType(Material.CHEST);
+            state.setType(Material.CHEST);
         }
-        // TODO(cceckman)
-        block.setType(Material.CHEST);
+
+        // Set all the object data except contents.
+        Chest dataLeft = (Chest)state.getBlockData();
+        Chest dataRight = (Chest)state.getBlockData();
+        dataLeft.setType(Chest.Type.LEFT);
+        dataRight.setType(Chest.Type.RIGHT);
+        dataLeft.setFacing(BlockFace.NORTH);
+        dataRight.setFacing(BlockFace.NORTH);
+
+        partner.update(true);
+        state.update(true);
+
         logger_.info(String.format("Turned (%d, %d, %d) into a chest",
             block.getX(), block.getY(), block.getZ()));
     }
@@ -114,6 +131,9 @@ public class OffsetOperation extends BukkitRunnable {
                 block = world.getBlockAt(location(offset));
                 ensureChest(block);
             }
+
+            BlockState state = block.getState();
+
             // Place the byte in the chest, OR read into buffer.
         }
     }

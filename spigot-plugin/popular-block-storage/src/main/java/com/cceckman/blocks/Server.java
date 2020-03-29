@@ -92,7 +92,7 @@ public class Server extends Thread {
             var input = s.getInputStream();
             var output = s.getOutputStream();
             // Read header: r/w byte, offset, length
-            final int headerSize = 1 + 8 + 4;
+            final int headerSize = 1 + 4 + 4;
             var header = new byte[headerSize];
             var headerAccess = ByteBuffer.wrap(header);
             while(true) {
@@ -108,8 +108,8 @@ public class Server extends Thread {
                 // Decode header.
                 boolean isReadRequest = header[0] == 0;
                 boolean isWriteRequest = !isReadRequest;
-                long offset = headerAccess.getLong(1);
-                int length = headerAccess.getInt(9);
+                long offset = headerAccess.getInt(1);
+                int length = headerAccess.getInt(5);
 
                 // Get data buffer. Yes, we should reuse these. No, we aren't going to.
                 var data = new byte[length];
