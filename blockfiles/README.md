@@ -15,13 +15,14 @@ $ sudo sudo losetup --find --show [directory]
 $ sudo mount /dev/loop0 /mnt/blocks
 ```
 
-This exposes a unix socket on `[port]`, which responds to read and write requests. This can be
-tested with the `blockTest` command.
+This exposes a unix socket on `[port]`, which sends out read and write requests as they come in.
+
+If you're not running the world's most popular block storage device already, you can emulate it with
+the blockTest program:
 
 ```sh
 $ go build cmd/blockTest
-$ blockTest [port] write [offset] [values]
-$ blockTest [port] read [offset] [length]
+$ blockTest [port]
 ```
 
 ## Why not use NBD?
