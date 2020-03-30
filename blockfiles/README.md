@@ -13,7 +13,7 @@ $ mkdir [directory]
 $ chmod 0777 [directory]
 $ sudo ./blockfiles [directory] [host:port]
 $ mkfs.ext4 [directory]/blocks
-$ sudo sudo losetup --find --show [directory]
+$ sudo losetup --find --show [directory]/blocks
 /dev/loopN
 $ sudo mount /dev/loop0 /mnt/blocks
 ```

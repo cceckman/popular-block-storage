@@ -22,7 +22,7 @@ import (
 const _DISK_SIZE = 1 * 1024 * 1024
 
 // How many bytes to transfer in each transaction.
-const _PAGE_SIZE = 1024
+const _PAGE_SIZE = 4096
 
 // TODO(slongfield): For faster reads, we should cache the data if we don't write between reads.
 
@@ -279,5 +279,6 @@ func (f *File) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.Wri
 }
 
 func (f *File) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
+	f.handleRead(0, 0)
 	return nil
 }
