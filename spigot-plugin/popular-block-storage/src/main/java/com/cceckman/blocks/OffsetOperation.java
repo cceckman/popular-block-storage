@@ -55,9 +55,8 @@ public class OffsetOperation extends BukkitRunnable {
     // Data is organized hierarchically:
     // - Along the Z-axis by slice (4096 KiB)
     // - Along the Y-axis by row (4 per slice --> 1024 bytes)
-    // - Along the X-axis by column (19 per row)
-    // - Within a chest by byte index (54 per row)
-
+    // - Along the X-axis by column (38 per row)
+    // - Within a chest by byte index (27 per row)
     static final int kBytesPerSlice = 4096;
     // Slice is the XY-slice that the given offset is in.
     private static int slice(final long offset) {
@@ -87,11 +86,15 @@ public class OffsetOperation extends BukkitRunnable {
         return chest_index / kRowsPerSlice;                       // Column of pairs-of-chests: 0, 19
     }
 
-    private Block buddy(final long offset) {
+    private boolean columnParity(final long offset){
         final int col = column(offset);
+        return col % 2 == 0;
+    }
+
+    private Block buddy(final long offset) {
         // "Even" columns have a buddy at +1; "odd" columns have a buddy at -1.
         int step = -1;
-        if(col % 1 == 0) {
+        if(columnParity(offset)) {
             step = 1;
         }
         return location(offset).clone().add(new Vector(step, 0, 0)).getBlock();
@@ -99,25 +102,32 @@ public class OffsetOperation extends BukkitRunnable {
 
     private void ensureChest(final long offset) {
         Block block = location(offset).getBlock();
-        // Block buddy = buddy(offset);
+        Block buddy = buddy(offset);
 
         // If either is not a chest, we're in repair mode.
-        if(block.getType() != Material.CHEST /*|| buddy.getType() != Material.CHEST*/) {
+        if(block.getType() != Material.CHEST || buddy.getType() != Material.CHEST) {
             block.setType(Material.CHEST);
-            //buddy.setType(Material.CHEST);
+            buddy.setType(Material.CHEST);
         }
 
         // Set object metadata.
         Chest blockData = (Chest)block.getBlockData();
-        // Chest buddyData= (Chest)buddy.getBlockData();
+        Chest buddyData= (Chest)buddy.getBlockData();
         blockData.setType(Chest.Type.SINGLE);
-        //blockData.setType(Chest.Type.LEFT);
-        // buddyData.setType(Chest.Type.RIGHT);
         blockData.setFacing(BlockFace.NORTH);
-        // buddyData.setFacing(BlockFace.NORTH);
+        buddyData.setFacing(BlockFace.NORTH);
+
+        // Which half is which? Depends on if this is the "even" or "odd" parity.
+        if(columnParity(offset)) {
+            blockData.setType(Chest.Type.LEFT);
+            buddyData.setType(Chest.Type.RIGHT);
+        }else{
+            blockData.setType(Chest.Type.RIGHT);
+            buddyData.setType(Chest.Type.LEFT);
+        }
 
         block.setBlockData(blockData);
-        // buddy.setBlockData(buddyData);
+        buddy.setBlockData(buddyData);
     }
 
     private Location location(final long offset) {
@@ -126,7 +136,7 @@ public class OffsetOperation extends BukkitRunnable {
         // Column takes some trickiness: "even" columns are at N*3, "odd" columns at N*3+1.
         // This gives us the appropriate left/right side of a chest.
         int col = column(offset);
-        int x = col * 3 + (col % 2);
+        int x = (col/2) * 3 + (col % 2);
         return origin_.clone().add(new Vector(x,y,z));
     }
 
