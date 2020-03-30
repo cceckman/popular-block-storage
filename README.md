@@ -2,8 +2,9 @@
 
 Slides [here](https://docs.google.com/presentation/d/1wgD_L70IqBUjulB82w8W-aECEOIKt1o3ZRgdD2w-P1Q/edit?usp=sharing)
 
-Repository for @cceckman and @slongfield's 2020 SIGBOVIK submission: Integrating Popular Block Storage into Linux.
+Repository for [cceckman](https://github.com/cceckman) and [slongfield](https://github.com/slongfield)'s 2020 SIGBOVIK submission: Integrating Popular Block Storage into Linux.
 
+The code / instructions in this repository allow you to use Minecraft chests as Linux block storage devices.
 
 ## Howto
 
