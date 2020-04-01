@@ -9,7 +9,8 @@ redo-ifchange \
 
 ./build.sh
 
+# Create a dummy output file to force a flush of the redo cache
 sha256sum \
     output/spigot.jar \
     output/spigot-api-shaded.jar \
-| redo-stamp
+    >$3
