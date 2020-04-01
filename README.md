@@ -37,4 +37,4 @@ With that running, connect the server to a block device:
 $ ./run_blocks.sh my-directory
 ```
 
-That will
+That will create a `blocks` file in a temporary directory, put an `ext4` filesystem on it, and mount it at `my-directory`.
