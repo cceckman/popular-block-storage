@@ -26,3 +26,6 @@ hs_err_pid*
 **/.redo/
 world/
 blockfiles.pid
+
+.do_built.dir
+.do_built

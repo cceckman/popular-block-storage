@@ -16,22 +16,33 @@ The code / instructions in this repository allow you to use Minecraft chests as 
     - A recent [Go](https://golang.org) toolchain
     - openjdk-11-jre and openjdk-11-jdk
     - Apache Maven
-    - github.com/apenwarr/redo (TODO: Replace with do.sh)
     - `e2fsprogs` in `PATH` (e.g. `mkfs.ext4`)
     - Probably some other things we didn't notice we had. Sorry!
 
 ## How-to
-To build and run the Minecraft server and plugins, clone this Git repository, and run:
+Clone this repository:
+
+```
+$ git clone https://github.com/cceckman/popular-block-storage.git
+```
+
+Build everything:
+
+```
+$ ./do all
+```
+
+To run the Minecraft server and plugins:
 
 ```
 $ ./run_mc.sh
 ```
 
-The Minecraft server will run on port 4601; you can connect your Minecraft game to it right away!
+The Minecraft server will run on port 4601; you can connect your Minecraft client to it right away!
 
 The block storage server will run on port 4602.
 
-With that running, connect the server to a block device:
+With that running, connect the server to your filesystem:
 
 ```
 $ ./run_blocks.sh my-directory

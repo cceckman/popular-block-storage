@@ -37,7 +37,12 @@ fi
 
 TD="$(mktemp -d)"
 
-redo-ifchange blockfiles/blockfiles
+if ! test -e blockfiles/blockfiles
+then
+  echo >&2 "blockfiles binary isn't built!"
+  echo >&2 "Try running './do.sh all' first!"
+  exit 5
+fi
 
 sudo -n true || {
     echo >&2 "We need sudo credentials to mount the device. Sorry!"

@@ -12,7 +12,12 @@ then
     chmod 0777 "$PWD/world"
 fi
 
-redo-ifchange spigot/plugged-in.img
+if ! test -f spigot/plugged-in.img
+then
+  echo >&2 "It doesn't look like the server and plugin aren't built!"
+  echo >&2 "Try running './do.sh all' first!"
+  exit 1
+fi
 
 docker run -it \
     --mount type=bind,source=$PWD/world,destination=/home/spigot/world \
