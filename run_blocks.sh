@@ -21,6 +21,20 @@ then
     exit 1
 fi
 
+MKFS="${MKFS:-mkfs.ext4}"
+if ! which "$MKFS"
+then
+    # Attempt some other PATHs...
+    MKFS="$(find /usr/bin /usr/sbin /sbin /bin -name $MKFS)"
+fi
+if ! which "$MKFS"
+then
+    echo >&2 "Could not find mkfs $MKFS in path."
+    echo >&2 "Do you need to modify your \$PATH?"
+    echo >&2 "Or, explicitly set \$MKFS to the mkfs binary you want."
+    exit 4
+fi
+
 TD="$(mktemp -d)"
 
 redo-ifchange blockfiles/blockfiles
@@ -38,7 +52,7 @@ echo "$!" >blockfiles.pid
 sleep 1
 
 # Set up a filesystem.
-mkfs.ext4 "$TD"/blocks
+"$MKFS" "$TD"/blocks
 BLOCKDEV="$(sudo losetup --find --show "$TD"/blocks)"
 sudo mount "$BLOCKDEV" "$1"
 
