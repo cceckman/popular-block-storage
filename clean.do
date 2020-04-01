@@ -8,6 +8,6 @@ rm -rf spigot/output spigot/spigot-outputs
 sudo rm -rf world
 
 rm -rf spigot-plugin/plugin.jar
-{ cd spigot-plugin/popular-block-storage && mvn clean; }
-rm -rf blockfiles.pid
+cd spigot-plugin/popular-block-storage && mvn clean && cd ..
+rm -f blockfiles.pid
 rm -rf blocks
