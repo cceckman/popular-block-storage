@@ -15,7 +15,7 @@ fi
 if ! test -f spigot/plugged-in.img
 then
   echo >&2 "It doesn't look like the server and plugin aren't built!"
-  echo >&2 "Try running './do.sh all' first!"
+  echo >&2 "Try running './do all' first!"
   exit 1
 fi
 

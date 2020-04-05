@@ -40,7 +40,7 @@ TD="$(mktemp -d)"
 if ! test -e blockfiles/blockfiles
 then
   echo >&2 "blockfiles binary isn't built!"
-  echo >&2 "Try running './do.sh all' first!"
+  echo >&2 "Try running './do all' first!"
   exit 5
 fi
 
